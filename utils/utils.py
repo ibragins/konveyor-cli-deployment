@@ -205,7 +205,7 @@ def pull_stage_ga_dependency_file(mta_version, repo):
 
 
 def download_file(url, local_filename):
-    response = requests.get(url, stream=True)
+    response = requests.get(url, stream=True,verify=False)
     if response.status_code == 200:
         with open(local_filename, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
