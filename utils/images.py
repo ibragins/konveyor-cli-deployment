@@ -99,5 +99,5 @@ def generate_images_list(version, build):
     :param build: build number
     :return: String containing list of images. Can be converted to JSON after that.
     """
-    get_images_output_command = f"cd {config.MISC_DOWNSTREAM_PATH}; ./{config.GET_IMAGES_OUTPUT}{config.BUNDLE}{version}-{build} | grep -vi error"
+    get_images_output_command = f'cd {config.MISC_DOWNSTREAM_PATH}; ./{config.GET_IMAGES_OUTPUT}{config.BUNDLE}{version}-{build}'
     return run_command(get_images_output_command)

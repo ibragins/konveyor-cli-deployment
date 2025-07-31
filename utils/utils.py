@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+import re
 import shutil
 import string
 import subprocess
@@ -92,13 +93,19 @@ def convert_to_json(file):
     :param file: String to be converted
     :return: JSON
     """
+    # print(f"Json got: {file}")
     try:
-        json_file = json.loads(file)
+        match = re.search(r'\{.*\}', file, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON object found in input.")
+
+        json_str = match.group(0)
+        parsed = json.loads(json_str)
         logging.info("String was converted to JSON successfully!")
-        return json_file
+        return parsed
+
     except Exception as err:
         raise SystemExit(f"There was an error converting string to JSON format: {err}")
-
 def connect_ssh(ip_address):
     SSH_HOST = ip_address
     SSH_USER = 'igor'
