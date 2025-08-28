@@ -1,9 +1,10 @@
 import logging
+import os
 import platform
 import zipfile
 
 import config
-from utils.utils import convert_to_json, clear_folder, run_command, get_os_platform
+from utils.utils import convert_to_json, clear_folder, run_command, get_os_platform, run_command_ssh
 
 
 def get_zip_folder_name(image_list):
@@ -39,20 +40,48 @@ def get_zip_name(version="upstream"):
     return zip_name
 
 
-def unpack_zip(zip_file, target_path):
+def unpack_zip(zip_file, target_path, client=None):
     """
     Unpacks a ZIP file into the specified target directory.
     :param zip_file: Path to the ZIP file to be unpacked.
     :param target_path: Directory where the contents of the ZIP file will be extracted.
+    :param client: Paramiko SSH client (optional)
     """
-    clear_folder(target_path)
+    if not client:
+        clear_folder(target_path)
 
-    with zipfile.ZipFile(zip_file, "r") as zip_ref:
+        with zipfile.ZipFile(zip_file, "r") as zip_ref:
+            try:
+                zip_ref.extractall(target_path)
+                logging.info(f"Zip {zip_file} unpacked successfully to {target_path}")
+            except Exception as err:
+                raise SystemExit("There was an issue with unpacking zip file: {}".format(err))
+    else:
         try:
-            zip_ref.extractall(target_path)
-            logging.info(f"Zip {zip_file} unpacked successfully to {target_path}")
+            remote_home_dir = run_command("pwd", client=client)[0]
+            remote_zip = os.path.join(remote_home_dir, os.path.basename(zip_file))
+            logging.info(f"Local zip path: {zip_file}")
+            logging.info(f"Remote zip path: {remote_zip}")
+            sftp = client.open_sftp()
+            sftp.put(zip_file, remote_zip)
+
+            # Cleanup folder on remote host
+            logging.info(f"Clearing target path: {target_path}")
+            # run_command_ssh(client, f"rm -rf {target_path}/*")
+            run_command( f"rm -rf {target_path}/*", client=client)[0]
+
+            # Unpacking zip on remote host
+            logging.info(f"Unpacking {remote_zip} to {target_path} on remote host")
+            run_command(f"unzip -o {remote_zip} -d {target_path}", client=client)
+
+            logging.info(f"Zip {zip_file} unpacked successfully to {target_path} on remote host")
+
+            # Cleaning up archive
+            run_command_ssh(client,f"rm -f {remote_zip}")
+
         except Exception as err:
-            raise SystemExit("There was an issue with unpacking zip file: {}".format(err))
+            logging.error("Remote unpack failed:")
+            raise SystemExit("{}".format(err))
 
 
 def generate_zip(version, build):

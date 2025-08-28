@@ -26,53 +26,68 @@ logging.basicConfig(
 )
 
 
+import subprocess
+import logging
+
 def run_command(command, fail_on_failure=True, client=None):
     """
     Runs command either locally or on a remote machine via SSH
     :param command: Command that will be performed
     :param fail_on_failure: Flag if run should be terminated on failure or not
     :param client: Paramiko SSH client (optional)
-    :return: output of command performed
+    :return: (stdout, stderr) as strings
     """
     try:
-        logging.info(f"Executing command: {command}")
-        if client:
-            # Remote execution via SSH
-            _stdin, stdout, _stderr = client.exec_command(command)
-            stdout_result = stdout.read().decode('utf-8')
-            stderr_result = _stderr.read().decode('utf-8')
+        if client is not None:
+            # определяем IP удалённого хоста
+            try:
+                ip = client.get_transport().getpeername()[0]
+            except Exception:
+                ip = "unknown"
 
-            exit_status = stdout.channel.recv_exit_status()
-            if exit_status != 0 and fail_on_failure:
-                print(f"[ERROR] Remote command failed:\n{stderr_result}")
-                raise Exception(stderr_result)
+            logging.info(f"[REMOTE {ip}] Executing command: {command}")
 
-            return stdout_result, stderr_result
+            try:
+                _stdin, stdout, _stderr = client.exec_command(command)
+
+                out_lines = []
+                for line in iter(lambda: stdout.readline(2048), ""):
+                    out_lines.append(line.rstrip())
+
+                err_output = _stderr.read().decode()
+
+                if err_output and fail_on_failure:
+                    raise SystemExit(err_output)
+
+                return "\n".join(out_lines), err_output
+
+            except Exception as err:
+                raise SystemExit(f"There was an issue with ssh command: {err}")
+
         else:
-            # Local execution
+            logging.info(f"[LOCAL] Executing command: {command}")
+
             result = subprocess.run(command,
                                     shell=True,
                                     check=fail_on_failure,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE,
-                                    encoding='utf-8')
-            if result.returncode != 0 and fail_on_failure:
-                raise subprocess.CalledProcessError(result.returncode,
-                                                    command,
-                                                    output=result.stdout,
-                                                    stderr=result.stderr)
+                                    encoding="utf-8")
 
             return result.stdout, result.stderr
+
     except subprocess.CalledProcessError as err:
         logging.error(f"Local command failed: {err.stderr}")
-        print(f"[ERROR] Local command failed:\n{err.stderr}")
         if fail_on_failure:
             raise SystemExit(f"There was an issue running a command: {err}")
+        return err.output, err.stderr
+
     except Exception as err:
         logging.error(f"Remote command failed: {err}")
-        print(f"[ERROR] Remote command failed:\n{err}")
         if fail_on_failure:
             raise SystemExit(f"There was an issue running a command: {err}")
+        return "", str(err)
+
 
 def read_file(output_file):
     """
@@ -106,10 +121,12 @@ def convert_to_json(file):
 
     except Exception as err:
         raise SystemExit(f"There was an error converting string to JSON format: {err}")
+
+
 def connect_ssh(ip_address):
     SSH_HOST = ip_address
-    SSH_USER = 'igor'
-    SSH_KEY = None
+    SSH_USER = 'ec2-user'
+    SSH_KEY = '/home/igor/.ssh/aws-vm-login-key.pem'
     client = paramiko.SSHClient()
     try:
         client.load_system_host_keys()
@@ -120,25 +137,47 @@ def connect_ssh(ip_address):
         client.close()
         raise SystemExit("There was an issue connecting to host by ssh: {}".format(err))
 
+
 def run_command_ssh(client, command):
     try:
         _stdin, stdout, _stderr = client.exec_command(command)
+
+        output_lines = []
         for line in iter(lambda: stdout.readline(2048).rstrip(), ""):
-            print(line)
-        stderr = _stderr.read()
+            output_lines.append(line)
+
+        stderr = _stderr.read().decode()
         if len(stderr) > 0:
             raise SystemExit(stderr)
+
+        # Возвращаем результат как строку (соединённые строки через \n)
+        return "\n".join(output_lines)
+
     except Exception as err:
         raise SystemExit("There was an issue with ssh command: {}".format(err))
 
 
-def get_target_dependency_path():
+def get_target_dependency_path(client=None):
     """
     Gets home folder path of the user script is running from
+    :param: client: SSH client for getting home dir from remote host
     :return: String contains folder name
     """
-    home_dir = os.path.expanduser("~")  # Getting home dir
+    if client:
+        try:
+            stdin, stdout, stderr = client.exec_command('echo $HOME')
+            home_dir = stdout.read().decode().strip()
+            if not home_dir:
+                # В качестве запасного варианта используем 'pwd'
+                stdin, stdout, stderr = client.exec_command('pwd')
+                home_dir = stdout.read().decode().strip()
+        except Exception as err:
+            raise SystemExit("There was an issue getting home dir of remote host: {}".format(err))
+    else:
+        home_dir = os.path.expanduser("~")
+
     return os.path.join(home_dir, ".kantra")
+
 
 def clear_folder (path):
     """
@@ -158,6 +197,7 @@ def clear_folder (path):
     except Exception as err:
         logging.error(f"Couldn't create a folder: {path}")
         raise SystemExit ("There was an issue creating a folder: {}".format(err))
+
 
 def create_random_folder(base_path):
     """
@@ -233,3 +273,7 @@ def get_os_platform ():
     else:
         machine = "unknown"
     return os_name, machine
+
+
+def send_file_by_ssh(client):
+    pass
