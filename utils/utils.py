@@ -4,13 +4,13 @@ import random
 import re
 import shutil
 import string
-import subprocess
 import json
 import sys
 import paramiko
 import requests
 import platform
 
+import config
 from utils.const import zip_urls
 
 # from utils.const import zip_urls
@@ -30,63 +30,40 @@ import subprocess
 import logging
 
 def run_command(command, fail_on_failure=True, client=None):
-    """
-    Runs command either locally or on a remote machine via SSH
-    :param command: Command that will be performed
-    :param fail_on_failure: Flag if run should be terminated on failure or not
-    :param client: Paramiko SSH client (optional)
-    :return: (stdout, stderr) as strings
-    """
+    logging.info(f"Executing command: {command}")
     try:
-        if client is not None:
-            # определяем IP удалённого хоста
-            try:
-                ip = client.get_transport().getpeername()[0]
-            except Exception:
-                ip = "unknown"
+        if client:
+            _stdin, stdout, _stderr = client.exec_command(command)
 
-            logging.info(f"[REMOTE {ip}] Executing command: {command}")
+            out = stdout.read().decode()
+            err = _stderr.read().decode()
+            exit_status = stdout.channel.recv_exit_status()
 
-            try:
-                _stdin, stdout, _stderr = client.exec_command(command)
+            # logging.info(f"[REMOTE] exit_code={exit_status}")
+            if exit_status != 0 and fail_on_failure:
+                raise SystemExit(
+                    f"Remote command failed with exit code {exit_status}\nSTDOUT:\n{out}\nSTDERR:\n{err}"
+                )
 
-                out_lines = []
-                for line in iter(lambda: stdout.readline(2048), ""):
-                    out_lines.append(line.rstrip())
-
-                err_output = _stderr.read().decode()
-
-                if err_output and fail_on_failure:
-                    raise SystemExit(err_output)
-
-                return "\n".join(out_lines), err_output
-
-            except Exception as err:
-                raise SystemExit(f"There was an issue with ssh command: {err}")
-
+            return out, err
         else:
-            logging.info(f"[LOCAL] Executing command: {command}")
-
-            result = subprocess.run(command,
-                                    shell=True,
-                                    check=fail_on_failure,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    encoding="utf-8")
-
+            result = subprocess.run(
+                command,
+                shell=True,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding="utf-8",
+            )
+            if result.returncode != 0 and fail_on_failure:
+                raise SystemExit(
+                    f"Local command failed with exit code {result.returncode}\n"
+                    f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+                )
             return result.stdout, result.stderr
-
-    except subprocess.CalledProcessError as err:
-        logging.error(f"Local command failed: {err.stderr}")
-        if fail_on_failure:
-            raise SystemExit(f"There was an issue running a command: {err}")
-        return err.output, err.stderr
-
     except Exception as err:
-        logging.error(f"Remote command failed: {err}")
-        if fail_on_failure:
-            raise SystemExit(f"There was an issue running a command: {err}")
-        return "", str(err)
+        raise SystemExit(f"There was an issue running a command: {err}")
+
 
 
 def read_file(output_file):
@@ -125,36 +102,18 @@ def convert_to_json(file):
 
 def connect_ssh(ip_address):
     SSH_HOST = ip_address
-    SSH_USER = 'ec2-user'
-    SSH_KEY = '/home/igor/.ssh/aws-vm-login-key.pem'
+    SSH_USER = config.SSH_USER
+    SSH_KEY = config.SSH_KEY
     client = paramiko.SSHClient()
     try:
         client.load_system_host_keys()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(SSH_HOST, username=SSH_USER, key_filename=SSH_KEY)
+        logging.info(f"Connected to host {ip_address}")
         return client
     except Exception as err:
         client.close()
         raise SystemExit("There was an issue connecting to host by ssh: {}".format(err))
-
-
-def run_command_ssh(client, command):
-    try:
-        _stdin, stdout, _stderr = client.exec_command(command)
-
-        output_lines = []
-        for line in iter(lambda: stdout.readline(2048).rstrip(), ""):
-            output_lines.append(line)
-
-        stderr = _stderr.read().decode()
-        if len(stderr) > 0:
-            raise SystemExit(stderr)
-
-        # Возвращаем результат как строку (соединённые строки через \n)
-        return "\n".join(output_lines)
-
-    except Exception as err:
-        raise SystemExit("There was an issue with ssh command: {}".format(err))
 
 
 def get_target_dependency_path(client=None):

@@ -71,6 +71,7 @@ def remove_old_images(version="upstream", client=None):
     """
     try:
         result, result_err = run_command("podman images", client=client)
+        # logging.info(f"List of images: {result}")
 
         # Filtering lines that contain "registry" and version
         images = []

@@ -1,10 +1,9 @@
 import logging
 import os
-import platform
 import zipfile
 
 import config
-from utils.utils import convert_to_json, clear_folder, run_command, get_os_platform, run_command_ssh
+from utils.utils import convert_to_json, clear_folder, run_command, get_os_platform
 
 
 def get_zip_folder_name(image_list):
@@ -21,6 +20,8 @@ def get_zip_folder_name(image_list):
             if "mta-cli-rhel9" in key:
                 _, major, minor = value["nvr"].rsplit("-", 2)
                 return f"MTA-{major}-{minor}"
+    return None
+
 
 def get_zip_name(version="upstream"):
     """
@@ -58,7 +59,7 @@ def unpack_zip(zip_file, target_path, client=None):
                 raise SystemExit("There was an issue with unpacking zip file: {}".format(err))
     else:
         try:
-            remote_home_dir = run_command("pwd", client=client)[0]
+            remote_home_dir = run_command("pwd", client=client)[0].strip()
             remote_zip = os.path.join(remote_home_dir, os.path.basename(zip_file))
             logging.info(f"Local zip path: {zip_file}")
             logging.info(f"Remote zip path: {remote_zip}")
@@ -77,7 +78,7 @@ def unpack_zip(zip_file, target_path, client=None):
             logging.info(f"Zip {zip_file} unpacked successfully to {target_path} on remote host")
 
             # Cleaning up archive
-            run_command_ssh(client,f"rm -f {remote_zip}")
+            run_command(f"rm -f {remote_zip}", client)
 
         except Exception as err:
             logging.error("Remote unpack failed:")

@@ -3,7 +3,7 @@ import os
 
 import config
 from utils.images import remove_old_images, generate_images_list, pull_tag_images
-from utils.utils import connect_ssh, run_command_ssh, read_file, get_target_dependency_path
+from utils.utils import connect_ssh, read_file, get_target_dependency_path
 from utils.zip import generate_zip, get_zip_folder_name, get_zip_name, unpack_zip
 
 
@@ -20,12 +20,11 @@ def run_remote_deployment(data):
 
     try:
         client = connect_ssh(ip_address)
-        logging.info(f"Connected to host {ip_address}")
     except Exception as err:
         raise SystemExit("There was an issue connecting to remote host: {}".format(err))
 
     if version and build and not upstream:
-        remove_old_images(version, client)
+        remove_old_images(version, client=client)
 
         if not image_output_file:
             logging.info(f"Generating images list for {version}-{build}")
