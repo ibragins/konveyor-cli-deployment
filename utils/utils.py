@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import re
+import shlex
 import shutil
 import string
 import json
@@ -33,6 +34,8 @@ def run_command(command, fail_on_failure=True, client=None):
     logging.info(f"Executing command: {command}")
     try:
         if client:
+            safe_cmd = shlex.quote(command)
+            command = f"bash -lc {safe_cmd}"
             _stdin, stdout, _stderr = client.exec_command(command)
 
             out = stdout.read().decode()
