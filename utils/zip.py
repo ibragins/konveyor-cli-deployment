@@ -23,13 +23,16 @@ def get_zip_folder_name(image_list):
     return None
 
 
-def get_zip_name(version="upstream"):
+def get_zip_name(version="upstream", os_name=None, machine=None):
     """
     Gets ZIP filename according to OS and CPU type
+    :param os_name: Name of the OS: Linux, Windows or Darwin
+    :param machine: amd64 or arm64
     :param version: MTA version, for example 7.2.0 or 7.1.1
     :return: String containing file name
     """
-    os_name, machine = get_os_platform()
+    if not os_name and not machine:
+        os_name, machine = get_os_platform()
 
     if version != "upstream":
         zip_name = f"mta-{version}-cli-{os_name}-{machine}.zip"

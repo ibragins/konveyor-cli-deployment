@@ -13,6 +13,9 @@ def run_remote_deployment(data):
     image_output_file = data["args_image_output_file"]
     arg_dependency_file = data["args_dependency_file"]
     ip_address = data["args_ip_address"]
+    host_os = data["args_os"]
+    host_platform = data["args_platform"]
+
     if data["args_upstream"]:
         upstream = True
     else:
@@ -37,7 +40,7 @@ def run_remote_deployment(data):
             logging.info(f"Generating dependencies zip for {version}-{build}")
             generate_zip(version, build)
             zip_folder_name = get_zip_folder_name(image_list)
-            zip_name = get_zip_name(zip_folder_name.split("-")[1])
+            zip_name = get_zip_name(zip_folder_name.split("-")[1], host_os, host_platform )
             full_zip_name = os.path.join(config.MISC_DOWNSTREAM_PATH, zip_folder_name, zip_name)
             logging.info(f"Using generated zip dependency file: {full_zip_name}")
         else:
