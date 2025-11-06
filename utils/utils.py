@@ -7,6 +7,9 @@ import shutil
 import string
 import json
 import sys
+import time
+import urllib
+
 import paramiko
 import requests
 import platform
@@ -237,5 +240,87 @@ def get_os_platform ():
     return os_name, machine
 
 
-def send_file_by_ssh(client):
-    pass
+def get_repo_folder_name(repo_url: str) -> str:
+    """
+    Extracts the folder name from a git repository URL, e.g.:
+    https://github.com/konveyor/kantra-cli-tests → kantra-cli-tests
+    """
+    # Removing slash at the enf of string
+    repo_url = repo_url.rstrip('/')
+    # Parsing URL
+    parsed = urllib.parse.urlparse(repo_url)
+    # Delimiting segments
+    path = parsed.path  # например: '/konveyor/kantra-cli-tests'
+    # Getting last segment (actually path)
+    folder = os.path.basename(path)
+    return folder
+
+
+def get_home_dir(client=None):
+    return run_command("echo $HOME", client=client)[0].strip()
+
+
+def write_env_file(env_path, env_dict, client=None):
+    """
+    Write or update .env file on a local or remote host.
+
+    :param env_path: Path to the .env file
+    :param env_dict: Dictionary of environment variables {KEY: VALUE}
+    :param client: Optional paramiko.SSHClient for remote host
+    """
+    logging.info(f"Writing .env file at {env_path}")
+
+    # Prepare the file content
+    lines = [f"{key}={value}" for key, value in env_dict.items()]
+    content = "\n".join(lines) + "\n"
+
+    if client:
+        # Remote write
+        sftp = client.open_sftp()
+        try:
+            # Ensure directory exists (optional)
+            dir_path = "/".join(env_path.split("/")[:-1])
+            try:
+                sftp.stat(dir_path)
+            except FileNotFoundError:
+                client.exec_command(f"mkdir -p {dir_path}")
+
+            # Write file
+            with sftp.file(env_path, "w") as f:
+                f.write(content)
+            logging.info(f"✅ Remote .env file written to {env_path}")
+        finally:
+            sftp.close()
+    else:
+        # Local write
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        logging.info(f"✅ Local .env file written to {env_path}")
+
+def ensure_podman_running(client=None):
+    """
+    Ensures that Podman is running (either locally or remotely).
+    Tries to start the default machine if not active.
+    """
+    print("Checking Podman status...")
+
+    # Step 1: check if podman responds
+    out, err = run_command("podman images", fail_on_failure=False, client=client)
+    if err or "Error:" in out or "Cannot connect" in out:
+        print("Podman machine is not running. Attempting to start it...")
+
+        # Step 2: try to start machine
+        run_command("podman machine start >/dev/null 2>&1 || true", fail_on_failure=False, client=client)
+
+        # Step 3: wait for startup
+        time.sleep(3)
+
+        # Step 4: recheck status
+        out2, err2 = run_command("podman images", fail_on_failure=False, client=client)
+        if err2 or "Error:" in out2 or "Cannot connect" in out2:
+            print("❌ Failed to start Podman machine.")
+            raise SystemExit(1)
+        else:
+            print("✅ Podman machine started successfully.")
+    else:
+        print("✅ Podman is already running.")

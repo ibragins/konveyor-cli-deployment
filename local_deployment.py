@@ -4,7 +4,7 @@ import os
 import config
 from utils.images import remove_old_images, generate_images_list, pull_tag_images, pull_stage_ga_images
 from utils.utils import read_file, get_target_dependency_path, get_latest_upstream_dependency, download_file, \
-    pull_stage_ga_dependency_file
+    pull_stage_ga_dependency_file, ensure_podman_running
 from utils.zip import generate_zip, get_zip_folder_name, get_zip_name, unpack_zip
 
 
@@ -17,6 +17,7 @@ def run_local_deployment(data):
         upstream = False
     image_output_file = data["args_image_output_file"]
     arg_dependency_file = data["args_dependency_file"]
+    ensure_podman_running()
     if version and build and not upstream:
         remove_old_images(version)
         logging.info(f"Deploying MTA Version: {version} {build}")

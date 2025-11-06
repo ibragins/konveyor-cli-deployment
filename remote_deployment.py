@@ -3,7 +3,7 @@ import os
 
 import config
 from utils.images import remove_old_images, generate_images_list, pull_tag_images
-from utils.utils import connect_ssh, read_file, get_target_dependency_path
+from utils.utils import connect_ssh, read_file, get_target_dependency_path, ensure_podman_running
 from utils.zip import generate_zip, get_zip_folder_name, get_zip_name, unpack_zip
 
 
@@ -26,6 +26,7 @@ def run_remote_deployment(data):
     except Exception as err:
         raise SystemExit("There was an issue connecting to remote host: {}".format(err))
 
+    ensure_podman_running(client=client)
     if version and build and not upstream:
         remove_old_images(version, client=client)
 
