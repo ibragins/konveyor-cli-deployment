@@ -51,6 +51,15 @@ Basic command to deploy the Upstream (*U/S*) CLI:
 ./install_cli.py --upstream true
 ```
 
+Basic command to pull and configure kantra-cli-tests (https://github.com/konveyor/kantra-cli-tests):
+
+```bash
+ ./prepare_remote_host.py --ip_address X.X.X.X
+```
+
+Important: 
+System variables `GIT_USERNAME` and `GIT_PASSWORD` should be present and should have respective values assigned in order to run all tests properly
+
 ## Configuration
 
 You need to create a `config.json` file before running the tool. A template file, `config.json.example`, is included for reference.
