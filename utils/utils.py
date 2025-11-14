@@ -321,6 +321,6 @@ def ensure_podman_running(client=None):
             print("❌ Failed to start Podman machine.")
             raise SystemExit(1)
         else:
-            print("✅ Podman machine started successfully.")
+            print("Podman machine started successfully.")
     else:
-        print("✅ Podman is already running.")
+        print("Podman is already running.")
