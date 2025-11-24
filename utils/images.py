@@ -36,7 +36,7 @@ def pull_tag_images(mta_version, output_file, client=None):
                 logging.info(f'Tagging {image} is completed...')
 
 
-def pull_stage_ga_images(mta_version, repo):
+def pull_stage_ga_images(mta_version, repo, client=None):
     """
     Pulls images for Stage / GA
     :param mta_version: MTA version to be pulled
@@ -54,12 +54,12 @@ def pull_stage_ga_images(mta_version, repo):
         logging.info(f"Processing repository: {repo} (url: {image_url})")
         # Pull the image
         pull_command = f"podman pull {image_url} --tls-verify=false"
-        run_command(pull_command)
+        run_command(pull_command, client=client)
         logging.info(f"Pulled image from {repo}")
         # Tag the image based on the repository type
         tag_command = f"podman tag {image_url} {repositories.get('ga') + f'/mta/{image}:{mta_version}'}"
         if repo != 'ga' and repo != 'candidate':
-            run_command(tag_command)
+            run_command(tag_command, client=client)
             logging.info(f"Tagged image {image} to ga")
 
 
