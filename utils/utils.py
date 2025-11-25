@@ -208,7 +208,7 @@ def get_latest_upstream_dependency(user, repo, asset_name):
         return None
 
 
-def pull_stage_ga_dependency_file(mta_version, repo, os_name="linux", machine="amd64"):
+def pull_stage_ga_dependency_file(mta_version, repo, os_name=None, machine=None):
     if not os and not machine:
         os_name, machine = get_os_platform()
     dependency_file_name = f'mta-{mta_version}-cli-{os_name}-{machine}.zip'
