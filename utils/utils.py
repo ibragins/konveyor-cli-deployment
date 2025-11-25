@@ -209,10 +209,11 @@ def get_latest_upstream_dependency(user, repo, asset_name):
 
 
 def pull_stage_ga_dependency_file(mta_version, repo, os_name=None, machine=None):
-    if not os and not machine:
+    if not os_name and not machine:
         os_name, machine = get_os_platform()
     dependency_file_name = f'mta-{mta_version}-cli-{os_name}-{machine}.zip'
     dependency_file_url=zip_urls.get(repo).format(ver=mta_version) + dependency_file_name
+    logging.info(f"Downloading dependency file from URL: {dependency_file_url}")
     download_file(dependency_file_url, dependency_file_name)
     return dependency_file_name
 
